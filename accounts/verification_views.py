@@ -1,8 +1,5 @@
-import uuid
-
 from django.contrib.auth import get_user_model
-from django.utils.encoding import force_str
-from django.utils.http import urlsafe_base64_decode
+from django.core import signing
 
 from rest_framework import status
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -32,50 +29,43 @@ class SendEmailVerificationView(APIView):
             {"detail": "Verification email sent."},
             status=status.HTTP_200_OK,
         )
-
+    
 
 
 class ConfirmEmailVerificationView(APIView):
     permission_classes = [AllowAny]
 
     def get(self, request):
-        uidb64 = request.query_params.get("uid")
         token = request.query_params.get("token")
 
-        if not uidb64 or not token:
+        if not token:
             return Response(
-                {"detail": "User identifier and token are required."},
+                {"detail": "Token is required."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
         try:
-            # Decode the URL-safe Base64 UID.
-            decoded_uid = force_str(urlsafe_base64_decode(uidb64))
-            user_uuid = uuid.UUID(decoded_uid)
-
-            # Find the user using the UUID primary key.
-            user = User.objects.get(pk=user_uuid)
-
+            data = signing.loads(
+                token,
+                salt="accounts.email_verification",
+                max_age=60 * 5,
+            )
+            user = User.objects.get(pk=data["user_id"])
         except (
-            ValueError,
-            TypeError,
-            UnicodeDecodeError,
+            signing.BadSignature,
+            signing.SignatureExpired,
             User.DoesNotExist,
+            KeyError,
+            TypeError,
         ):
             return Response(
-                {"detail": "Invalid user identifier in verification link."},
+                {"detail": "Invalid or expired verification token."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
         if user.is_email_verified:
             return Response(
                 {"detail": "Email is already verified."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        if not email_verification_token.check_token(user, token):
-            return Response(
-                {"detail": "Invalid or expired verification token."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -86,4 +76,3 @@ class ConfirmEmailVerificationView(APIView):
             {"detail": "Email verified successfully."},
             status=status.HTTP_200_OK,
         )
-

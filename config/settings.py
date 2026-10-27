@@ -129,13 +129,15 @@ REST_FRAMEWORK = {
 # Email
 # https://docs.djangoproject.com/en/6.1/topics/email/#topic-email-configuration
 
-MAILERS = {
-    'default': {
-        'BACKEND': 'django.core.mail.backends.console.EmailBackend',
-    },
-}
+EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+EMAIL_HOST = "sandbox.smtp.mailtrap.io"
+EMAIL_PORT = 2525
+EMAIL_USE_TLS = True
+EMAIL_USE_SSL = False
+EMAIL_HOST_USER = os.getenv("MAILTRAP_USERNAME")
+EMAIL_HOST_PASSWORD = os.getenv("MAILTRAP_PASSWORD")
+DEFAULT_FROM_EMAIL = "EventHub <noreply@example.com>"
 
-DEFAULT_FROM_EMAIL = "noreply@eventhub.local"
 AUTH_USER_MODEL = "accounts.User"
 
 SIMPLE_JWT = {
